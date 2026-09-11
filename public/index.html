@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2f6fed" />
+  <title>Учёт времени</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <nav class="tabs">
+      <button class="tab active" data-view="start">Старт</button>
+      <button class="tab" data-view="today">Сегодня</button>
+      <button class="tab" data-view="report">Отчёт</button>
+      <button class="tab" data-view="templates">Шаблоны</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===== СТАРТ ===== -->
+    <section id="view-start" class="view active">
+      <div id="active-card" class="active-card hidden">
+        <div class="active-label">Идёт запись</div>
+        <div class="active-client" id="active-client"></div>
+        <div class="active-task" id="active-task"></div>
+        <div class="active-time" id="active-time"></div>
+        <div class="active-actions">
+          <button class="btn btn-passive" id="btn-passive">В ожидании</button>
+          <button class="btn btn-stop" id="btn-stop">Завершить</button>
+        </div>
+      </div>
+
+      <div class="start-buttons">
+        <button class="big-btn big-call" id="btn-call">Звонок</button>
+        <button class="big-btn big-self" id="btn-self">Начать задачу</button>
+      </div>
+
+      <form id="self-form" class="form hidden">
+        <h2>Новая задача</h2>
+        <input id="f-client" list="clients-list" placeholder="Клиент" autocomplete="off" />
+        <datalist id="clients-list"></datalist>
+        <input id="f-task" list="tasks-list" placeholder="Задача" autocomplete="off" />
+        <datalist id="tasks-list"></datalist>
+        <div class="form-actions">
+          <button type="button" class="btn" id="btn-cancel-self">Отмена</button>
+          <button type="submit" class="btn btn-primary">Поехали</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== СЕГОДНЯ ===== -->
+    <section id="view-today" class="view">
+      <div class="section-title">Сегодня <span id="today-date"></span></div>
+      <div class="day-total" id="day-total"></div>
+      <ul id="today-list" class="entry-list"></ul>
+    </section>
+
+    <!-- ===== ОТЧЁТ ===== -->
+    <section id="view-report" class="view">
+      <div class="report-controls">
+        <div class="range-btns">
+          <button class="range active" data-range="day">День</button>
+          <button class="range" data-range="week">Неделя</button>
+          <button class="range" data-range="month">Месяц</button>
+        </div>
+        <div class="dates">
+          <input type="date" id="r-from" />
+          <span>—</span>
+          <input type="date" id="r-to" />
+          <button class="btn btn-primary" id="btn-report">Показать</button>
+        </div>
+        <button class="btn" id="btn-csv">Скачать CSV</button>
+      </div>
+
+      <h3>По клиентам</h3>
+      <table class="rep-table" id="rep-clients"></table>
+
+      <h3>По задачам</h3>
+      <table class="rep-table" id="rep-tasks"></table>
+
+      <h3>Записи</h3>
+      <ul id="report-entries" class="entry-list"></ul>
+    </section>
+
+    <!-- ===== ШАБЛОНЫ ===== -->
+    <section id="view-templates" class="view">
+      <div class="section-title">Шаблоны задач</div>
+      <form id="template-form" class="form">
+        <input id="t-name" placeholder="Название шаблона" autocomplete="off" />
+        <input id="t-client" list="clients-list" placeholder="Клиент" autocomplete="off" />
+        <input id="t-task" list="tasks-list" placeholder="Задача" autocomplete="off" />
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
+      <ul id="template-list" class="template-list"></ul>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

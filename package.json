@@ -1,0 +1,16 @@
+{
+  "name": "time-log",
+  "version": "1.0.0",
+  "description": "Сервис учёта рабочего времени по клиентам и задачам",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
