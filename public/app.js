@@ -587,9 +587,9 @@ function fmtHMS(ms) {
   return h + ' ч ' + m + ' мин';
 }
 
-// округление до ближайших 15 минут
+// округление в большую сторону до 15 минут
 function fmtRounded15(ms) {
-  const min = Math.round(ms / 60000 / 15) * 15;
+  const min = Math.ceil(ms / 60000 / 15) * 15;
   const h = Math.floor(min / 60);
   const m = min % 60;
   if (h === 0) return m + ' мин';

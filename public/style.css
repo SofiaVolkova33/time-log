@@ -166,10 +166,16 @@ h3 { margin: 14px 0 8px; font-size: 16px; }
 .rep-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
 .rep-table th, .rep-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 14px; }
 .rep-table th { background: #efeaf6; font-weight: 700; }
-.rep-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.rep-table tbody tr.row-0 { background: #ffffff; }
-.rep-table tbody tr.row-1 { background: #f3f0fa; }
-.rep-table thead th { background: #e7e0f0; }
+.rep-table td.num, .rep-table th.num { text-align: center; font-variant-numeric: tabular-nums; }
+
+/* отчёт по клиентам — голубая пастель */
+#rep-clients thead th { background: #d7e8f2; }
+#rep-clients tbody tr.row-0 { background: #ffffff; }
+#rep-clients tbody tr.row-1 { background: #e8f1f7; }
+/* отчёт по задачам — мятная пастель */
+#rep-tasks thead th { background: #d8ecdf; }
+#rep-tasks tbody tr.row-0 { background: #ffffff; }
+#rep-tasks tbody tr.row-1 { background: #e8f4ec; }
 
 /* сегодня: строка свода */
 .today-row .today-time {
