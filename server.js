@@ -271,10 +271,11 @@ app.get('/api/report', (req, res) => {
     else byClient[key].active += r.dur;
 
     const tk = r.task || '(без задачи)';
-    if (!byTask[tk]) byTask[tk] = { active: 0, passive: 0, count: 0 };
-    byTask[tk].count++;
-    if (r.status === 'passive') byTask[tk].passive += r.dur;
-    else byTask[tk].active += r.dur;
+    const tkKey = tk + '||' + (r.client || '');
+    if (!byTask[tkKey]) byTask[tkKey] = { name: tk, client: r.client || '', active: 0, passive: 0, count: 0 };
+    byTask[tkKey].count++;
+    if (r.status === 'passive') byTask[tkKey].passive += r.dur;
+    else byTask[tkKey].active += r.dur;
   }
 
   const toList = (map) =>
@@ -287,7 +288,7 @@ app.get('/api/report', (req, res) => {
     to,
     clients: toList(byClient),
     tasks: toList(byTask),
-    entries: intersected.map(rowToEntry),
+    entries: intersected.map((r) => ({ ...rowToEntry(r), dur: r.dur })),
   });
 });
 

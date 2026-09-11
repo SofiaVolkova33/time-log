@@ -473,7 +473,75 @@ async function loadToday() {
   const list = $('#today-list');
   list.innerHTML = '';
   if (!withTime.length) { list.innerHTML = '<li class="empty-hint">Сегодня нет записей времени</li>'; return; }
-  for (const r of withTime) list.appendChild(makeEntryCard(r));
+  for (const r of withTime) list.appendChild(makeTodayRow(r));
+}
+
+// свод сегодняшней записи: без кнопок, время со-до, заметки текстом
+function makeTodayRow(r) {
+  const li = document.createElement('li');
+  li.className = 'entry today-row ' + r.status;
+
+  const head = document.createElement('div');
+  head.className = 'entry-head';
+  const info = document.createElement('div');
+  const client = document.createElement('div');
+  client.className = 'entry-client';
+  client.textContent = r.client || 'Без клиента';
+  const task = document.createElement('div');
+  task.className = 'entry-task';
+  task.textContent = r.task || '';
+  info.appendChild(client);
+  info.appendChild(task);
+  head.appendChild(info);
+
+  const tag = document.createElement('span');
+  tag.className = 'entry-tag ' + r.status + (r.source === 'call' ? ' call' : '');
+  tag.textContent = tagLabel(r);
+  head.appendChild(tag);
+  li.appendChild(head);
+
+  // время: со скольки — до скольки (до редактируемое)
+  const timeRow = document.createElement('div');
+  timeRow.className = 'today-time';
+  const fromSpan = document.createElement('span');
+  fromSpan.textContent = 'Со ' + fmtClockTime(r.start);
+
+  const toLabel = document.createElement('span');
+  toLabel.textContent = ' · до ';
+
+  const toEdit = document.createElement('input');
+  toEdit.type = 'time';
+  toEdit.className = 'to-edit';
+  if (r.end != null) toEdit.value = fmtClockTime(r.end);
+
+  const dur = document.createElement('span');
+  const ref = r.end != null ? r.end : Date.now();
+  dur.textContent = ' · ' + fmtRounded15(ref - r.start);
+
+  toEdit.addEventListener('change', async () => {
+    if (!toEdit.value) return;
+    const d = new Date(r.start);
+    const [hh, mm] = toEdit.value.split(':').map(Number);
+    d.setHours(hh, mm, 0, 0);
+    await api('/api/entries/' + r.id, { method: 'PATCH', body: { end_ms: d.getTime() } });
+    loadToday();
+  });
+
+  timeRow.appendChild(fromSpan);
+  timeRow.appendChild(toLabel);
+  timeRow.appendChild(toEdit);
+  timeRow.appendChild(dur);
+  li.appendChild(timeRow);
+
+  // заметки — только отображение (если были указаны)
+  if (r.note) {
+    const note = document.createElement('div');
+    note.className = 'today-note';
+    note.textContent = r.note;
+    li.appendChild(note);
+  }
+
+  return li;
 }
 
 // ---------- отчёт ----------
@@ -519,23 +587,54 @@ function fmtHMS(ms) {
   return h + ' ч ' + m + ' мин';
 }
 
-function renderReportTable(el, rows, isClient) {
+// округление до ближайших 15 минут
+function fmtRounded15(ms) {
+  const min = Math.round(ms / 60000 / 15) * 15;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return m + ' мин';
+  if (m === 0) return h + ' ч';
+  return h + ' ч ' + m + ' мин';
+}
+
+function fmtClockTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+}
+
+function renderReportTable(el, rows, type) {
   el.innerHTML = '';
   if (!rows.length) { el.innerHTML = '<tr><td>Нет данных</td></tr>'; return; }
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
-  trh.innerHTML = '<th>' + (isClient ? 'Клиент' : 'Задача') + '</th><th class="num">Активное</th><th class="num">Ожидание</th><th class="num">Итого</th>';
+  if (type === 'task') {
+    trh.innerHTML = '<th>Задача</th><th>Клиент</th><th class="num">Активное</th><th class="num">Ожидание</th><th class="num">Итого</th>';
+  } else {
+    trh.innerHTML = '<th>Клиент</th><th class="num">Активное</th><th class="num">Ожидание</th><th class="num">Итого</th>';
+  }
   thead.appendChild(trh);
   el.appendChild(thead);
   const tbody = document.createElement('tbody');
+  let i = 0;
   for (const r of rows) {
     const tr = document.createElement('tr');
+    tr.className = 'row-' + ((i++) % 2);
     const total = r.active + r.passive;
-    tr.innerHTML =
-      '<td>' + escapeHtml(r.name) + '</td>' +
-      '<td class="num">' + (r.active ? fmtHMS(r.active) : '—') + '</td>' +
-      '<td class="num">' + (r.passive ? fmtHMS(r.passive) : '—') + '</td>' +
-      '<td class="num"><b>' + fmtHMS(total) + '</b></td>';
+    if (type === 'task') {
+      tr.innerHTML =
+        '<td>' + escapeHtml(r.name) + '</td>' +
+        '<td>' + escapeHtml(r.client || '—') + '</td>' +
+        '<td class="num">' + (r.active ? fmtHMS(r.active) : '—') + '</td>' +
+        '<td class="num">' + (r.passive ? fmtHMS(r.passive) : '—') + '</td>' +
+        '<td class="num"><b>' + fmtHMS(total) + '</b></td>';
+    } else {
+      tr.innerHTML =
+        '<td>' + escapeHtml(r.name) + '</td>' +
+        '<td class="num">' + (r.active ? fmtHMS(r.active) : '—') + '</td>' +
+        '<td class="num">' + (r.passive ? fmtHMS(r.passive) : '—') + '</td>' +
+        '<td class="num"><b>' + fmtHMS(total) + '</b></td>';
+    }
     tbody.appendChild(tr);
   }
   el.appendChild(tbody);
@@ -547,8 +646,8 @@ async function loadReport() {
   if (!from || !to) return;
   try {
     reportData = await api('/api/report?from=' + from + '&to=' + to);
-    renderReportTable($('#rep-clients'), reportData.clients, true);
-    renderReportTable($('#rep-tasks'), reportData.tasks, false);
+    renderReportTable($('#rep-clients'), reportData.clients, 'client');
+    renderReportTable($('#rep-tasks'), reportData.tasks, 'task');
     const list = $('#report-entries');
     list.innerHTML = '';
     for (const r of reportData.entries) {
@@ -557,7 +656,8 @@ async function loadReport() {
       const typeBadge = r.source === 'call' ? '<span class="entry-tag call">звонок</span> ' : '';
       li.innerHTML =
         '<div class="entry-head"><span><b>' + typeBadge + escapeHtml(r.client || 'Без клиента') + '</b></span><span class="entry-time">' + fmtRange(r.start, r.end) + '</span></div>' +
-        '<div class="entry-task">' + escapeHtml(r.task || '') + '</div>';
+        '<div class="entry-task">' + escapeHtml(r.task || '') + '</div>' +
+        '<div class="report-dur">Выполнение: ' + fmtRounded15(r.dur || 0) + '</div>';
       if (r.note) li.innerHTML += '<div class="muted" style="font-size:13px;margin-top:4px">' + escapeHtml(r.note) + '</div>';
       list.appendChild(li);
     }
@@ -570,9 +670,9 @@ $('#btn-csv').addEventListener('click', () => {
   for (const r of reportData.clients) {
     csv += r.name + ';' + Math.round(r.active / 60000) + ';' + Math.round(r.passive / 60000) + ';' + Math.round((r.active + r.passive) / 60000) + '\n';
   }
-  csv += '\nЗадача;Активное(мин);Ожидание(мин);Итого(мин)\n';
+  csv += '\nЗадача;Клиент;Активное(мин);Ожидание(мин);Итого(мин)\n';
   for (const r of reportData.tasks) {
-    csv += r.name + ';' + Math.round(r.active / 60000) + ';' + Math.round(r.passive / 60000) + ';' + Math.round((r.active + r.passive) / 60000) + '\n';
+    csv += r.name + ';' + (r.client || '—') + ';' + Math.round(r.active / 60000) + ';' + Math.round(r.passive / 60000) + ';' + Math.round((r.active + r.passive) / 60000) + '\n';
   }
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
