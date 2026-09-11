@@ -93,7 +93,6 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; }
 .form-actions .btn { flex: 1; }
 
 .btn-block { width: 100%; margin-bottom: 10px; }
-.btn-add-todo { background: #eef4ff; border-color: #cdd9f5; color: var(--blue-dark); }
 
 textarea { font-family: inherit; }
 
@@ -102,6 +101,13 @@ textarea { font-family: inherit; }
 .day-total { color: var(--muted); font-size: 14px; margin-bottom: 10px; }
 
 .entry-list { list-style: none; }
+.entry-list.current-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+.entry-list.current-grid .entry { margin-bottom: 0; }
 .entry {
   background: var(--card); border: 1px solid var(--line); border-radius: 12px;
   padding: 12px 14px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;
@@ -164,14 +170,6 @@ h3 { margin: 14px 0 8px; font-size: 16px; }
 .template-sub { color: var(--muted); font-size: 13px; }
 .template-run { background: var(--green); border: none; color: #fff; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
 .template-del { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px 8px; }
-
-/* ===== выбор клиента в звонке ===== */
-.call-clients { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; max-height: 40vh; overflow-y: auto; }
-.call-client {
-  padding: 10px 14px; border: 1px solid var(--line); border-radius: 20px;
-  background: #fafbfe; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--ink);
-}
-.call-client:active { background: var(--blue); color: #fff; border-color: var(--blue); }
 
 /* ===== задачи по клиентам ===== */
 .client-group { margin-bottom: 12px; }

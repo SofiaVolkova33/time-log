@@ -208,6 +208,15 @@ function makeEntryCard(r) {
     actions.appendChild(bStop);
   }
 
+  // кнопка «+ Задача» на активной карточке — добавить дело с привязкой к клиенту
+  if (r.status === 'active' || r.status === 'passive' || r.status === 'new') {
+    const bAdd = document.createElement('button');
+    bAdd.className = 'btn';
+    bAdd.textContent = '+ Задача';
+    bAdd.addEventListener('click', () => openTodoForm(r.client || ''));
+    actions.appendChild(bAdd);
+  }
+
   const bDel = document.createElement('button');
   bDel.className = 'btn btn-sm';
   bDel.textContent = '✕';
@@ -245,12 +254,10 @@ $('#self-form').addEventListener('submit', async (e) => {
       body: {
         client: $('#f-client').value.trim(),
         task: $('#f-task').value.trim(),
-        note: $('#f-note').value.trim(),
-        due: $('#f-due').value,
         source: 'self',
       },
     });
-    ['#f-client', '#f-task', '#f-note', '#f-due'].forEach((s) => { $(s).value = ''; });
+    ['#f-client', '#f-task'].forEach((s) => { $(s).value = ''; });
     $('#self-form').classList.add('hidden');
     loadCurrent();
     toast('Задача запущена');
@@ -258,12 +265,13 @@ $('#self-form').addEventListener('submit', async (e) => {
 });
 
 // ---------- новая задача-дело ----------
-function openTodoForm() {
+function openTodoForm(client) {
   $('#todo-form').classList.remove('hidden');
   $('#self-form').classList.add('hidden');
+  $('#t-client').value = client || '';
   loadClients();
+  $('#t-task').focus();
 }
-$('#btn-add-todo').addEventListener('click', openTodoForm);
 $('#btn-cancel-todo').addEventListener('click', () => $('#todo-form').classList.add('hidden'));
 
 $('#todo-form').addEventListener('submit', async (e) => {
@@ -291,62 +299,23 @@ $('#todo-form').addEventListener('submit', async (e) => {
 });
 
 // ---------- звонок (модалка) ----------
-let selectedCallClient = '';
-
 $('#btn-call').addEventListener('click', () => {
-  selectedCallClient = '';
-  $('#call-step1').classList.remove('hidden');
-  $('#call-step2').classList.add('hidden');
-  $('#call-search').value = '';
+  $('#call-client').value = '';
   $('#call-task').value = '';
-  $('#call-note').value = '';
   $('#call-modal').classList.remove('hidden');
-  loadCallClients('');
+  loadClients();
+  $('#call-client').focus();
 });
 
-async function loadCallClients(filter) {
-  const clients = await loadClients();
-  const f = filter.toLowerCase();
-  const list = $('#call-clients');
-  const filtered = clients.filter((c) => !f || c.toLowerCase().includes(f));
-  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">Ничего не найдено</div>'; return; }
-  list.innerHTML = '';
-  for (const c of filtered) {
-    const b = document.createElement('button');
-    b.className = 'call-client';
-    b.textContent = c;
-    b.addEventListener('click', () => selectCallClient(c));
-    list.appendChild(b);
-  }
-}
-
-$('#call-search').addEventListener('input', (e) => loadCallClients(e.target.value));
-
-function selectCallClient(client) {
-  selectedCallClient = client;
-  $('#call-client-name').textContent = client ? 'Клиент: ' + client : 'Без клиента';
-  $('#call-step1').classList.add('hidden');
-  $('#call-step2').classList.remove('hidden');
-  $('#call-task').focus();
-}
-
-$('#call-skip').addEventListener('click', () => selectCallClient(''));
 $('#call-cancel').addEventListener('click', () => $('#call-modal').classList.add('hidden'));
-$('#call-back').addEventListener('click', () => {
-  $('#call-step1').classList.remove('hidden');
-  $('#call-step2').classList.add('hidden');
-});
 
 $('#call-start').addEventListener('click', async () => {
+  const client = $('#call-client').value.trim();
+  if (!client) { toast('Укажите клиента'); return; }
   try {
     await api('/api/entries', {
       method: 'POST',
-      body: {
-        client: selectedCallClient,
-        task: $('#call-task').value.trim(),
-        note: $('#call-note').value.trim(),
-        source: 'call',
-      },
+      body: { client, task: $('#call-task').value.trim(), source: 'call' },
     });
     $('#call-modal').classList.add('hidden');
     loadCurrent();
@@ -508,8 +477,9 @@ async function loadReport() {
     for (const r of reportData.entries) {
       const li = document.createElement('li');
       li.className = 'entry';
+      const typeBadge = r.source === 'call' ? '<span class="entry-tag call">звонок</span> ' : '';
       li.innerHTML =
-        '<div class="entry-head"><span><b>' + escapeHtml(r.client || 'Без клиента') + '</b></span><span class="entry-time">' + fmtRange(r.start, r.end) + '</span></div>' +
+        '<div class="entry-head"><span><b>' + typeBadge + escapeHtml(r.client || 'Без клиента') + '</b></span><span class="entry-time">' + fmtRange(r.start, r.end) + '</span></div>' +
         '<div class="entry-task">' + escapeHtml(r.task || '') + '</div>';
       if (r.note) li.innerHTML += '<div class="muted" style="font-size:13px;margin-top:4px">' + escapeHtml(r.note) + '</div>';
       list.appendChild(li);
