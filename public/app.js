@@ -344,7 +344,7 @@ async function loadTodos() {
     group.className = 'client-group open';
 
     const head = document.createElement('div');
-    head.className = 'client-group-head';
+    head.className = 'client-group-head ' + colorFor(key);
     head.innerHTML = '<span class="caret">▸</span>' + escapeHtml(key) + '<span class="count">' + pending.length + '</span>';
     head.addEventListener('click', () => group.classList.toggle('open'));
 
@@ -380,6 +380,12 @@ async function loadTodos() {
   }
 }
 
+function colorFor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % 997;
+  return 'pc' + ((h % 6) + 1);
+}
+
 // компактная строка задачи в разделе «Задачи»
 function makeTodoRow(r) {
   const li = document.createElement('li');
@@ -397,6 +403,7 @@ function makeTodoRow(r) {
   const subs = [];
   if (r.client) subs.push(r.client);
   if (r.due) subs.push('срок: ' + r.due + (isOverdue(r) ? ' ⚠' : ''));
+  else subs.push('срок не указан');
   if (r.status === 'active') subs.push('в работе · ' + fmtDuration((r.end || Date.now()) - r.start));
   if (r.status === 'passive') subs.push('ожидание');
   if (r.status === 'done') subs.push('выполнена');

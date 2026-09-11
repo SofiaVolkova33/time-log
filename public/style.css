@@ -30,7 +30,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
   padding: 8px 12px;
   box-shadow: 0 2px 8px rgba(90,90,140,.15);
 }
-.tabs { display: flex; gap: 6px; max-width: 520px; margin: 0 auto; }
+.tabs { display: flex; gap: 6px; max-width: 960px; margin: 0 auto; }
 .tab {
   flex: 1; padding: 10px 0; border: none; border-radius: 10px;
   background: transparent; color: #4a4a5e; font-size: 15px; font-weight: 600;
@@ -38,7 +38,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 }
 .tab.active { background: rgba(255,255,255,.55); color: var(--ink); }
 
-main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; }
+main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: 14px; }
 
 .view { display: none; }
 .view.active { display: block; }
@@ -107,10 +107,13 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; }
 .entry-list { list-style: none; }
 .entry-list.current-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 12px;
   align-items: stretch;
   min-height: calc(100vh - 260px);
+}
+@media (min-width: 900px) {
+  .entry-list.current-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .entry-list.current-grid .entry { margin-bottom: 0; height: 100%; }
 .entry-list.current-grid .entry-actions { margin-top: auto; }
@@ -185,6 +188,12 @@ h3 { margin: 14px 0 8px; font-size: 16px; }
   background: var(--card); border: 1px solid var(--line); border-radius: 12px;
   font-weight: 700; cursor: pointer; font-size: 16px;
 }
+.client-group-head.pc1 { background: #e7e0f0; }
+.client-group-head.pc2 { background: #e0f0ea; }
+.client-group-head.pc3 { background: #f9e9e3; }
+.client-group-head.pc4 { background: #fdeff0; }
+.client-group-head.pc5 { background: #e6f1f5; }
+.client-group-head.pc6 { background: #f7f0df; }
 .client-group-head .count { color: var(--muted); font-size: 13px; font-weight: 600; margin-left: auto; }
 .client-group-head .caret { transition: transform .15s; color: var(--muted); }
 .client-group.open .caret { transform: rotate(90deg); }
