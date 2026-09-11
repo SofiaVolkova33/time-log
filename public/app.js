@@ -218,8 +218,8 @@ function makeEntryCard(r) {
   }
 
   const bDel = document.createElement('button');
-  bDel.className = 'btn btn-sm';
-  bDel.textContent = '✕';
+  bDel.className = 'btn';
+  bDel.textContent = 'Удалить';
   bDel.addEventListener('click', async () => {
     await api('/api/entries/' + r.id, { method: 'DELETE' });
     loadCurrent();
@@ -238,13 +238,47 @@ function updateTimers() {
   });
 }
 
-// ---------- новая задача ----------
-$('#btn-self').addEventListener('click', () => {
-  $('#self-form').classList.remove('hidden');
-  $('#todo-form').classList.add('hidden');
+// ---------- формы «Звонок» / «Начать задачу» ----------
+function hideAllForms() {
+  ['#call-form', '#self-form', '#todo-form'].forEach((s) => $(s).classList.add('hidden'));
+}
+
+function openForm(sel) {
+  hideAllForms();
+  $(sel).classList.remove('hidden');
   loadClients();
+}
+
+$('#btn-call').addEventListener('click', () => {
+  const f = $('#call-form');
+  if (!f.classList.contains('hidden')) { f.classList.add('hidden'); return; }
+  openForm('#call-form');
+  $('#call-client').focus();
 });
-$('#btn-cancel-self').addEventListener('click', () => $('#self-form').classList.add('hidden'));
+
+$('#btn-self').addEventListener('click', () => {
+  const f = $('#self-form');
+  if (!f.classList.contains('hidden')) { f.classList.add('hidden'); return; }
+  openForm('#self-form');
+  $('#f-client').focus();
+});
+
+$('#call-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const client = $('#call-client').value.trim();
+  if (!client) { toast('Укажите клиента'); return; }
+  try {
+    await api('/api/entries', {
+      method: 'POST',
+      body: { client, task: $('#call-task').value.trim(), source: 'call' },
+    });
+    $('#call-client').value = '';
+    $('#call-task').value = '';
+    hideAllForms();
+    loadCurrent();
+    toast('Звонок начат');
+  } catch (e) { toast('Ошибка'); }
+});
 
 $('#self-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -257,8 +291,9 @@ $('#self-form').addEventListener('submit', async (e) => {
         source: 'self',
       },
     });
-    ['#f-client', '#f-task'].forEach((s) => { $(s).value = ''; });
-    $('#self-form').classList.add('hidden');
+    $('#f-client').value = '';
+    $('#f-task').value = '';
+    hideAllForms();
     loadCurrent();
     toast('Задача запущена');
   } catch (e) { toast('Ошибка'); }
@@ -266,13 +301,12 @@ $('#self-form').addEventListener('submit', async (e) => {
 
 // ---------- новая задача-дело ----------
 function openTodoForm(client) {
+  hideAllForms();
   $('#todo-form').classList.remove('hidden');
-  $('#self-form').classList.add('hidden');
   $('#t-client').value = client || '';
   loadClients();
   $('#t-task').focus();
 }
-$('#btn-cancel-todo').addEventListener('click', () => $('#todo-form').classList.add('hidden'));
 
 $('#todo-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -284,42 +318,15 @@ $('#todo-form').addEventListener('submit', async (e) => {
       body: {
         client: $('#t-client').value.trim(),
         task,
-        note: $('#t-note').value.trim(),
         due: $('#t-due').value,
         source: 'todo',
         status: 'new',
       },
     });
-    ['#t-client', '#t-task', '#t-note', '#t-due'].forEach((s) => { $(s).value = ''; });
-    $('#todo-form').classList.add('hidden');
-    loadCurrent();
+    ['#t-client', '#t-task', '#t-due'].forEach((s) => { $(s).value = ''; });
+    hideAllForms();
     loadTodos();
     toast('Задача добавлена');
-  } catch (e) { toast('Ошибка'); }
-});
-
-// ---------- звонок (модалка) ----------
-$('#btn-call').addEventListener('click', () => {
-  $('#call-client').value = '';
-  $('#call-task').value = '';
-  $('#call-modal').classList.remove('hidden');
-  loadClients();
-  $('#call-client').focus();
-});
-
-$('#call-cancel').addEventListener('click', () => $('#call-modal').classList.add('hidden'));
-
-$('#call-start').addEventListener('click', async () => {
-  const client = $('#call-client').value.trim();
-  if (!client) { toast('Укажите клиента'); return; }
-  try {
-    await api('/api/entries', {
-      method: 'POST',
-      body: { client, task: $('#call-task').value.trim(), source: 'call' },
-    });
-    $('#call-modal').classList.add('hidden');
-    loadCurrent();
-    toast('Звонок начат');
   } catch (e) { toast('Ошибка'); }
 });
 
@@ -357,10 +364,10 @@ async function loadTodos() {
     const addBtn = document.createElement('button');
     addBtn.className = 'todo-save';
     addBtn.textContent = '+ Новая задача';
-    addBtn.addEventListener('click', () => showView('current') && openTodoForm());
+    addBtn.addEventListener('click', () => showView('current') && openTodoForm(key === '(без клиента)' ? '' : key));
     body.appendChild(addBtn);
 
-    for (const t of pending) body.appendChild(makeEntryCard(t));
+    for (const t of pending) body.appendChild(makeTodoRow(t));
 
     if (done.length) {
       const doneWrap = document.createElement('div');
@@ -371,7 +378,7 @@ async function loadTodos() {
       doneHead.addEventListener('click', () => doneWrap.classList.toggle('open'));
       const doneBody = document.createElement('div');
       doneBody.className = 'client-group-body';
-      for (const t of done) doneBody.appendChild(makeEntryCard(t));
+      for (const t of done) doneBody.appendChild(makeTodoRow(t));
       doneWrap.appendChild(doneHead);
       doneWrap.appendChild(doneBody);
       body.appendChild(doneWrap);
@@ -381,6 +388,79 @@ async function loadTodos() {
     group.appendChild(body);
     container.appendChild(group);
   }
+}
+
+// компактная строка задачи в разделе «Задачи»
+function makeTodoRow(r) {
+  const li = document.createElement('li');
+  li.className = 'entry todo-row ' + r.status;
+
+  const head = document.createElement('div');
+  head.className = 'entry-head';
+
+  const info = document.createElement('div');
+  const txt = document.createElement('div');
+  txt.className = 'todo-text';
+  txt.textContent = r.task || '(без задачи)';
+  const sub = document.createElement('div');
+  sub.className = 'entry-task';
+  const subs = [];
+  if (r.client) subs.push(r.client);
+  if (r.due) subs.push('срок: ' + r.due + (isOverdue(r) ? ' ⚠' : ''));
+  if (r.status === 'active') subs.push('в работе · ' + fmtDuration((r.end || Date.now()) - r.start));
+  if (r.status === 'passive') subs.push('ожидание');
+  if (r.status === 'done') subs.push('выполнена');
+  sub.textContent = subs.join(' · ');
+  info.appendChild(txt);
+  info.appendChild(sub);
+  head.appendChild(info);
+
+  const actions = document.createElement('div');
+  actions.className = 'entry-actions todo-actions';
+
+  if (r.status === 'new') {
+    const bStart = document.createElement('button');
+    bStart.className = 'btn btn-primary';
+    bStart.textContent = 'Начать';
+    bStart.addEventListener('click', async () => {
+      await api('/api/entries/' + r.id + '/start', { method: 'POST', body: {} });
+      loadTodos();
+      toast('Задача в работе');
+    });
+    actions.appendChild(bStart);
+  } else if (r.status === 'active' || r.status === 'passive') {
+    const bStop = document.createElement('button');
+    bStop.className = 'btn btn-stop';
+    bStop.textContent = 'Завершить';
+    bStop.addEventListener('click', async () => {
+      await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
+      loadTodos();
+      toast('Выполнено');
+    });
+    actions.appendChild(bStop);
+  }
+
+  if (r.status !== 'done') {
+    const bDel = document.createElement('button');
+    bDel.className = 'btn';
+    bDel.textContent = 'Удалить';
+    bDel.addEventListener('click', async () => {
+      await api('/api/entries/' + r.id, { method: 'DELETE' });
+      loadTodos();
+    });
+    actions.appendChild(bDel);
+  }
+
+  if (r.note) {
+    const note = document.createElement('div');
+    note.className = 'todo-note';
+    note.textContent = r.note;
+    li.appendChild(note);
+  }
+
+  li.appendChild(head);
+  li.appendChild(actions);
+  return li;
 }
 
 // ---------- сегодня ----------

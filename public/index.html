@@ -27,28 +27,28 @@
         <button class="big-btn big-self" id="btn-self">Начать задачу</button>
       </div>
 
+      <form id="call-form" class="form call-form hidden">
+        <h2>Начать звонок</h2>
+        <input id="call-client" list="clients-list" placeholder="Клиент" autocomplete="off" />
+        <datalist id="clients-list"></datalist>
+        <input id="call-task" list="tasks-list" placeholder="Задача (необязательно)" autocomplete="off" />
+        <datalist id="tasks-list"></datalist>
+        <button type="submit" class="btn btn-primary btn-submit">Начать звонок</button>
+      </form>
+
       <form id="self-form" class="form hidden">
         <h2>Новая задача</h2>
         <input id="f-client" list="clients-list" placeholder="Клиент" autocomplete="off" />
-        <datalist id="clients-list"></datalist>
         <input id="f-task" list="tasks-list" placeholder="Задача" autocomplete="off" />
-        <datalist id="tasks-list"></datalist>
-        <div class="form-actions">
-          <button type="button" class="btn" id="btn-cancel-self">Отмена</button>
-          <button type="submit" class="btn btn-primary">Поехали</button>
-        </div>
+        <button type="submit" class="btn btn-primary btn-submit">Поехали</button>
       </form>
 
-      <form id="todo-form" class="form hidden">
-        <h2>Новая задача-дело</h2>
+      <form id="todo-form" class="form todo-form hidden">
+        <h2>Новая задача</h2>
         <input id="t-client" list="clients-list" placeholder="Клиент (необязательно)" autocomplete="off" />
         <input id="t-task" placeholder="Что сделать? *" autocomplete="off" />
         <input id="t-due" type="date" placeholder="Срок (необязательно)" />
-        <textarea id="t-note" placeholder="Заметки (необязательно)"></textarea>
-        <div class="form-actions">
-          <button type="button" class="btn" id="btn-cancel-todo">Отмена</button>
-          <button type="submit" class="btn btn-primary">Сохранить</button>
-        </div>
+        <button type="submit" class="btn btn-primary btn-submit">Сохранить</button>
       </form>
 
       <div class="section-title">Незавершённое</div>
@@ -97,21 +97,6 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-
-  <!-- ===== Диалог «Звонок» ===== -->
-  <div id="call-modal" class="modal-overlay hidden">
-    <div class="modal">
-      <div class="modal-title">Начать звонок</div>
-      <div class="modal-sub">Введите клиента. Если его нет в списке — введите вручную, он сохранится.</div>
-      <input id="call-client" list="clients-list" placeholder="Клиент" autocomplete="off" />
-      <datalist id="clients-list"></datalist>
-      <input id="call-task" placeholder="Задача (необязательно)" autocomplete="off" />
-      <div class="modal-actions">
-        <button class="btn" id="call-cancel">Отмена</button>
-        <button class="btn btn-primary" id="call-start">Начать звонок</button>
-      </div>
-    </div>
-  </div>
 
   <script src="app.js"></script>
 </body>

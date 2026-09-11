@@ -79,10 +79,14 @@ function restorePaused(id) {
 
 // ---------- API: записи ----------
 
-// лента «Текущее» — все незавершённые (новые, в работе, в ожидании)
+// лента «Текущее» — незавершённые звонки и задачи (не задачи-дела)
 app.get('/api/current', (req, res) => {
   const rows = db
-    .prepare(`SELECT * FROM entries WHERE status IN ('new','active','passive') ORDER BY start_ms IS NULL, start_ms, id`)
+    .prepare(
+      `SELECT * FROM entries
+       WHERE source != 'todo' AND status IN ('new','active','passive')
+       ORDER BY start_ms IS NULL, start_ms, id`
+    )
     .all();
   res.json(rows.map(rowToEntry));
 });
