@@ -41,14 +41,6 @@ function nowMs() {
   return Date.now();
 }
 
-function closeActive(untilMs) {
-  // авто-закрытие: закрываем активную (не пассивную) запись
-  const stmt = db.prepare(
-    `UPDATE entries SET end_ms = ? WHERE status = 'active' AND end_ms IS NULL`
-  );
-  stmt.run(untilMs);
-}
-
 function rowToEntry(r) {
   if (!r) return null;
   return {
@@ -64,10 +56,10 @@ function rowToEntry(r) {
 
 // ---------- API: записи ----------
 
-// активная запись (для главного экрана)
+// активные записи (незакрытые) для главного экрана
 app.get('/api/active', (req, res) => {
-  const r = db.prepare(`SELECT * FROM entries WHERE end_ms IS NULL ORDER BY id DESC LIMIT 1`).get();
-  res.json(rowToEntry(r));
+  const rows = db.prepare(`SELECT * FROM entries WHERE end_ms IS NULL ORDER BY start_ms`).all();
+  res.json(rows.map(rowToEntry));
 });
 
 // записи за день (локальная дата клиента -> диапазон мс)
@@ -89,9 +81,6 @@ app.get('/api/entries', (req, res) => {
 app.post('/api/entries', (req, res) => {
   const { client = '', task = '', source = 'self', status = 'active', start } = req.body;
   const startMs = start != null ? Number(start) : nowMs();
-
-  // авто-закрытие предыдущей активной записи
-  closeActive(startMs);
 
   const info = db
     .prepare(`INSERT INTO entries (start_ms, client, task, source, status) VALUES (?, ?, ?, ?, ?)`)

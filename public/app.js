@@ -68,7 +68,7 @@ function toast(msg) {
 
 // ---------- состояние ----------
 
-let active = null;       // активная запись
+let activeList = [];   // активные (незакрытые) записи
 let pollTimer = null;
 
 // ---------- навигация ----------
@@ -83,30 +83,80 @@ function showView(name) {
 
 $$('.tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 
-// ---------- активная запись ----------
+// ---------- активные записи ----------
 
 function renderActive() {
-  const card = $('#active-card');
-  if (!active) {
-    card.classList.add('hidden');
+  const section = $('#active-section');
+  const list = $('#active-list');
+  list.innerHTML = '';
+  if (!activeList.length) {
+    section.classList.add('hidden');
     return;
   }
-  card.classList.remove('hidden');
-  card.classList.toggle('passive', active.status === 'passive');
-  $('#active-client').textContent = active.client || 'Без клиента';
-  $('#active-task').textContent = active.task || '';
-  $('#btn-passive').textContent = active.status === 'passive' ? 'Активно' : 'В ожидании';
+  section.classList.remove('hidden');
+  for (const r of activeList) {
+    list.appendChild(makeActiveItem(r));
+  }
+}
+
+function makeActiveItem(r) {
+  const el = document.createElement('div');
+  el.className = 'active-item' + (r.status === 'passive' ? ' passive' : '');
+
+  const client = document.createElement('div');
+  client.className = 'active-client';
+  client.textContent = r.client || 'Без клиента';
+  const task = document.createElement('div');
+  task.className = 'active-task';
+  task.textContent = r.task || '';
+  const time = document.createElement('div');
+  time.className = 'active-time';
+  time.dataset.start = r.start;
+  time.dataset.status = r.status;
+
+  const actions = document.createElement('div');
+  actions.className = 'active-actions';
+  const bPass = document.createElement('button');
+  bPass.className = 'btn';
+  bPass.textContent = r.status === 'passive' ? 'Активно' : 'В ожидании';
+  bPass.addEventListener('click', async () => {
+    const next = r.status === 'passive' ? 'active' : 'passive';
+    const upd = await api('/api/entries/' + r.id, { method: 'PATCH', body: { status: next } });
+    const idx = activeList.findIndex((x) => x.id === r.id);
+    if (idx >= 0) activeList[idx] = upd;
+    renderActive();
+    tick();
+  });
+  const bStop = document.createElement('button');
+  bStop.className = 'btn';
+  bStop.textContent = 'Завершить';
+  bStop.addEventListener('click', async () => {
+    await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
+    activeList = activeList.filter((x) => x.id !== r.id);
+    renderActive();
+    loadToday();
+  });
+  actions.appendChild(bPass);
+  actions.appendChild(bStop);
+
+  el.appendChild(client);
+  el.appendChild(task);
+  el.appendChild(time);
+  el.appendChild(actions);
+  return el;
 }
 
 function tick() {
-  if (!active) return;
   const now = Date.now();
-  $('#active-time').textContent = fmtDuration(now - active.start);
+  $$('#active-list .active-time').forEach((el) => {
+    const start = Number(el.dataset.start);
+    el.textContent = fmtDuration(now - start);
+  });
 }
 
 async function loadActive() {
   try {
-    active = await api('/api/active');
+    activeList = await api('/api/active');
     renderActive();
     tick();
   } catch (e) {
@@ -117,10 +167,9 @@ async function loadActive() {
 // пуск задачи через шаблон/кнопку
 async function startEntry(client, task, source = 'self') {
   try {
-    active = await api('/api/entries', { method: 'POST', body: { client, task, source, status: 'active' } });
+    await api('/api/entries', { method: 'POST', body: { client, task, source, status: 'active' } });
     $('#self-form').classList.add('hidden');
-    renderActive();
-    tick();
+    await loadActive();
     toast('Задача запущена');
   } catch (e) {
     toast('Ошибка');
@@ -153,21 +202,6 @@ $('#self-form').addEventListener('submit', (e) => {
   startEntry($('#f-client').value.trim(), $('#f-task').value.trim(), 'self');
   $('#f-client').value = '';
   $('#f-task').value = '';
-});
-
-$('#btn-stop').addEventListener('click', async () => {
-  if (!active) return;
-  await api('/api/entries/' + active.id + '/close', { method: 'POST', body: {} });
-  toast('Запись завершена');
-  await loadActive();
-  loadToday();
-});
-
-$('#btn-passive').addEventListener('click', async () => {
-  if (!active) return;
-  const next = active.status === 'passive' ? 'active' : 'passive';
-  active = await api('/api/entries/' + active.id, { method: 'PATCH', body: { status: next } });
-  renderActive();
 });
 
 // ---------- сегодня ----------

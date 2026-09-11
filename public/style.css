@@ -43,12 +43,15 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; }
 .view.active { display: block; }
 
 /* ===== активная карточка ===== */
-.active-card {
-  background: var(--green); color: #fff; border-radius: 14px;
-  padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(31,157,99,.35);
+.active-card-label {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--green-dark); font-weight: 700; margin: 0 4px 8px;
 }
-.active-card.passive { background: var(--amber); box-shadow: 0 4px 14px rgba(184,137,27,.3); }
-.active-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; opacity: .85; }
+.active-item {
+  background: var(--green); color: #fff; border-radius: 14px;
+  padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(31,157,99,.35);
+}
+.active-item.passive { background: var(--amber); box-shadow: 0 4px 14px rgba(184,137,27,.3); }
 .active-client { font-size: 20px; font-weight: 700; margin-top: 4px; }
 .active-task { font-size: 14px; opacity: .95; margin-top: 2px; }
 .active-time { font-size: 26px; font-weight: 800; margin: 10px 0 14px; font-variant-numeric: tabular-nums; }
