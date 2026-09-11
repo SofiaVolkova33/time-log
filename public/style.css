@@ -129,6 +129,11 @@ main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: 14px; }
 .entry-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .entry-client { font-weight: 700; }
 .entry-task { color: var(--muted); font-size: 14px; }
+.entry-task-input {
+  width: 100%; margin-top: 6px; padding: 8px 10px; border: 1px dashed var(--line);
+  border-radius: 8px; font-size: 14px; background: #fafbfe;
+}
+.entry-task-input:focus { border-style: solid; border-color: var(--blue); background: #fff; outline: none; }
 .entry-time { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .entry-tag {
   font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 700;

@@ -133,11 +133,22 @@ function makeEntryCard(r) {
   const client = document.createElement('div');
   client.className = 'entry-client';
   client.textContent = r.client || 'Без клиента';
-  const task = document.createElement('div');
-  task.className = 'entry-task';
-  task.textContent = r.task || '';
   info.appendChild(client);
-  info.appendChild(task);
+  if (r.task) {
+    const task = document.createElement('div');
+    task.className = 'entry-task';
+    task.textContent = r.task;
+    info.appendChild(task);
+  } else {
+    const inp = document.createElement('input');
+    inp.className = 'entry-task-input';
+    inp.placeholder = 'Название задачи…';
+    inp.addEventListener('change', async () => {
+      await api('/api/entries/' + r.id, { method: 'PATCH', body: { task: inp.value.trim() } });
+      loadCurrent();
+    });
+    info.appendChild(inp);
+  }
   head.appendChild(info);
 
   const right = document.createElement('div');
