@@ -12,25 +12,22 @@
 <body>
   <header class="topbar">
     <nav class="tabs">
-      <button class="tab active" data-view="start">Старт</button>
+      <button class="tab active" data-view="current">Текущее</button>
+      <button class="tab" data-view="tasks">Задачи</button>
       <button class="tab" data-view="today">Сегодня</button>
       <button class="tab" data-view="report">Отчёт</button>
-      <button class="tab" data-view="templates">Шаблоны</button>
     </nav>
   </header>
 
   <main>
-    <!-- ===== СТАРТ ===== -->
-    <section id="view-start" class="view active">
-      <div id="active-section" class="hidden">
-        <div class="active-card-label">Идёт запись</div>
-        <div id="active-list"></div>
-      </div>
-
+    <!-- ===== ТЕКУЩЕЕ ===== -->
+    <section id="view-current" class="view active">
       <div class="start-buttons">
         <button class="big-btn big-call" id="btn-call">Звонок</button>
         <button class="big-btn big-self" id="btn-self">Начать задачу</button>
       </div>
+
+      <button class="btn btn-block btn-add-todo" id="btn-add-todo">+ Новая задача</button>
 
       <form id="self-form" class="form hidden">
         <h2>Новая задача</h2>
@@ -38,11 +35,34 @@
         <datalist id="clients-list"></datalist>
         <input id="f-task" list="tasks-list" placeholder="Задача" autocomplete="off" />
         <datalist id="tasks-list"></datalist>
+        <input id="f-due" type="date" placeholder="Срок (необязательно)" />
+        <textarea id="f-note" placeholder="Заметки (необязательно)"></textarea>
         <div class="form-actions">
           <button type="button" class="btn" id="btn-cancel-self">Отмена</button>
           <button type="submit" class="btn btn-primary">Поехали</button>
         </div>
       </form>
+
+      <form id="todo-form" class="form hidden">
+        <h2>Новая задача-дело</h2>
+        <input id="t-client" list="clients-list" placeholder="Клиент (необязательно)" autocomplete="off" />
+        <input id="t-task" placeholder="Что сделать? *" autocomplete="off" />
+        <input id="t-due" type="date" placeholder="Срок (необязательно)" />
+        <textarea id="t-note" placeholder="Заметки (необязательно)"></textarea>
+        <div class="form-actions">
+          <button type="button" class="btn" id="btn-cancel-todo">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
+
+      <div class="section-title">Незавершённое</div>
+      <ul id="current-list" class="entry-list"></ul>
+    </section>
+
+    <!-- ===== ЗАДАЧИ ===== -->
+    <section id="view-tasks" class="view">
+      <div class="section-title">Задачи по клиентам</div>
+      <div id="todos-by-client"></div>
     </section>
 
     <!-- ===== СЕГОДНЯ ===== -->
@@ -78,32 +98,32 @@
       <h3>Записи</h3>
       <ul id="report-entries" class="entry-list"></ul>
     </section>
-
-    <!-- ===== ШАБЛОНЫ ===== -->
-    <section id="view-templates" class="view">
-      <div class="section-title">Шаблоны задач</div>
-      <form id="template-form" class="form">
-        <input id="t-name" placeholder="Название шаблона" autocomplete="off" />
-        <input id="t-client" list="clients-list" placeholder="Клиент" autocomplete="off" />
-        <input id="t-task" list="tasks-list" placeholder="Задача" autocomplete="off" />
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">Сохранить</button>
-        </div>
-      </form>
-      <ul id="template-list" class="template-list"></ul>
-    </section>
   </main>
 
   <div id="toast" class="toast hidden"></div>
 
-  <div id="modal" class="modal-overlay hidden">
+  <!-- ===== Диалог «Звонок» ===== -->
+  <div id="call-modal" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-title">Текущие задачи</div>
-      <div class="modal-sub">Что сделать с незакрытыми записями?</div>
-      <div id="modal-list"></div>
-      <div class="modal-actions">
-        <button class="btn" id="modal-cancel">Отмена</button>
-        <button class="btn btn-primary" id="modal-continue">Продолжить → новая</button>
+      <div id="call-step1">
+        <div class="modal-title">Кому звоним?</div>
+        <div class="modal-sub">Выберите клиента или начните вводить имя</div>
+        <input id="call-search" placeholder="Поиск клиента" autocomplete="off" />
+        <div id="call-clients" class="call-clients"></div>
+        <div class="modal-actions">
+          <button class="btn" id="call-cancel">Отмена</button>
+          <button class="btn" id="call-skip">Без клиента</button>
+        </div>
+      </div>
+      <div id="call-step2" class="hidden">
+        <div class="modal-title">Звонок</div>
+        <div class="modal-sub" id="call-client-name"></div>
+        <input id="call-task" placeholder="Задача (необязательно)" autocomplete="off" />
+        <textarea id="call-note" placeholder="Заметки (необязательно)"></textarea>
+        <div class="modal-actions">
+          <button class="btn" id="call-back">Назад</button>
+          <button class="btn btn-primary" id="call-start">Начать звонок</button>
+        </div>
       </div>
     </div>
   </div>

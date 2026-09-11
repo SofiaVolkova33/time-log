@@ -1,11 +1,11 @@
 'use strict';
 
 // ---------- утилиты ----------
-
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 function fmtDuration(ms) {
+  if (ms == null) return '—';
   const totalMin = Math.round(ms / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
@@ -15,6 +15,7 @@ function fmtDuration(ms) {
 }
 
 function fmtClock(ms) {
+  if (!ms) return '';
   const d = new Date(ms);
   return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
 }
@@ -45,7 +46,7 @@ function addDays(str, n) {
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 async function api(url, opts = {}) {
@@ -66,249 +67,64 @@ function toast(msg) {
   el._t = setTimeout(() => el.classList.add('hidden'), 2200);
 }
 
-// ---------- состояние ----------
-
-let activeList = [];   // активные (незакрытые) записи
-let pollTimer = null;
-
 // ---------- навигация ----------
-
 function showView(name) {
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
+  if (name === 'current') loadCurrent();
+  if (name === 'tasks') loadTodos();
   if (name === 'today') loadToday();
   if (name === 'report') setupReport();
-  if (name === 'templates') loadTemplates();
 }
 
 $$('.tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 
-// ---------- активные записи ----------
-
-function renderActive() {
-  const section = $('#active-section');
-  const list = $('#active-list');
-  list.innerHTML = '';
-  if (!activeList.length) {
-    section.classList.add('hidden');
-    return;
-  }
-  section.classList.remove('hidden');
-  for (const r of activeList) {
-    list.appendChild(makeActiveItem(r));
-  }
-}
-
-function makeActiveItem(r) {
-  const el = document.createElement('div');
-  el.className = 'active-item' + (r.status === 'passive' ? ' passive' : '');
-
-  const client = document.createElement('div');
-  client.className = 'active-client';
-  client.textContent = r.client || 'Без клиента';
-  const task = document.createElement('div');
-  task.className = 'active-task';
-  task.textContent = r.task || '';
-  const time = document.createElement('div');
-  time.className = 'active-time';
-  time.dataset.start = r.start;
-  time.dataset.status = r.status;
-
-  const actions = document.createElement('div');
-  actions.className = 'active-actions';
-  const bPass = document.createElement('button');
-  bPass.className = 'btn';
-  bPass.textContent = r.status === 'passive' ? 'Активно' : 'В ожидании';
-  bPass.addEventListener('click', async () => {
-    const next = r.status === 'passive' ? 'active' : 'passive';
-    const upd = await api('/api/entries/' + r.id, { method: 'PATCH', body: { status: next } });
-    const idx = activeList.findIndex((x) => x.id === r.id);
-    if (idx >= 0) activeList[idx] = upd;
-    renderActive();
-    tick();
-  });
-  const bStop = document.createElement('button');
-  bStop.className = 'btn';
-  bStop.textContent = 'Завершить';
-  bStop.addEventListener('click', async () => {
-    await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
-    activeList = activeList.filter((x) => x.id !== r.id);
-    renderActive();
-    loadToday();
-  });
-  actions.appendChild(bPass);
-  actions.appendChild(bStop);
-
-  el.appendChild(client);
-  el.appendChild(task);
-  el.appendChild(time);
-  el.appendChild(actions);
-  return el;
-}
-
-function tick() {
-  const now = Date.now();
-  $$('#active-list .active-time').forEach((el) => {
-    const start = Number(el.dataset.start);
-    el.textContent = fmtDuration(now - start);
-  });
-}
-
-async function loadActive() {
+// ---------- автодополнение ----------
+async function loadClients() {
   try {
-    activeList = await api('/api/active');
-    renderActive();
-    tick();
+    const clients = await api('/api/clients');
+    $('#clients-list').innerHTML = clients.map((c) => '<option value="' + escapeHtml(c) + '"></option>').join('');
+    const tasks = await api('/api/tasks');
+    $('#tasks-list').innerHTML = tasks.map((t) => '<option value="' + escapeHtml(t) + '"></option>').join('');
+    return clients;
+  } catch (e) {
+    return [];
+  }
+}
+
+// ---------- лента «Текущее» ----------
+async function loadCurrent() {
+  try {
+    const rows = await api('/api/current');
+    const list = $('#current-list');
+    list.innerHTML = '';
+    if (!rows.length) {
+      list.innerHTML = '<li class="empty-hint">Нет незавершённых задач</li>';
+      return;
+    }
+    for (const r of rows) list.appendChild(makeEntryCard(r));
   } catch (e) {
     toast('Нет связи с сервером');
   }
 }
 
-// пуск задачи через шаблон/кнопку
-async function startEntry(client, task, source = 'self') {
-  try {
-    await api('/api/entries', { method: 'POST', body: { client, task, source, status: 'active' } });
-    $('#self-form').classList.add('hidden');
-    await loadActive();
-    toast('Задача запущена');
-  } catch (e) {
-    toast('Ошибка');
-  }
+function tagLabel(r) {
+  if (r.source === 'call') return 'звонок';
+  if (r.status === 'new') return 'новая';
+  if (r.status === 'active') return 'идёт';
+  if (r.status === 'passive') return 'ожидание';
+  return 'завершено';
 }
 
-// кнопка «Звонок» — подхватываем последнего клиента из шаблонов или истории
-async function callStart() {
-  let client = '';
-  let task = 'Звонок клиенту';
-  try {
-    const tpls = await api('/api/templates');
-    const last = tpls[0];
-    if (last && last.client) client = last.client;
-  } catch (e) { /* ignore */ }
-  await startEntry(client, task, 'call');
+function isOverdue(r) {
+  return !!(r.due && r.due < todayStr() && r.status !== 'done');
 }
 
-$('#btn-call').addEventListener('click', callStart);
-
-$('#btn-self').addEventListener('click', async () => {
-  $('#self-form').classList.add('hidden');
-  await loadActive();
-  if (!activeList.length) {
-    $('#self-form').classList.remove('hidden');
-    loadClients();
-    return;
-  }
-  renderModalList();
-  $('#modal').classList.remove('hidden');
-});
-
-function renderModalList() {
-  const list = $('#modal-list');
-  list.innerHTML = '';
-  if (!activeList.length) {
-    $('#modal-continue').textContent = 'Открыть новую задачу';
-  } else {
-    $('#modal-continue').textContent = 'Продолжить → новая';
-  }
-  for (const r of activeList) {
-    const el = document.createElement('div');
-    el.className = 'modal-item';
-
-    const head = document.createElement('div');
-    head.className = 'modal-item-head';
-    const left = document.createElement('div');
-    left.innerHTML =
-      '<div class="modal-item-client">' + escapeHtml(r.client || 'Без клиента') + '</div>' +
-      '<div class="modal-item-task">' + escapeHtml(r.task || '') + '</div>';
-    const time = document.createElement('div');
-    time.className = 'modal-item-time';
-    time.dataset.start = r.start;
-    time.textContent = fmtDuration(Date.now() - r.start);
-    head.appendChild(left);
-    head.appendChild(time);
-    el.appendChild(head);
-
-    const actions = document.createElement('div');
-    actions.className = 'modal-item-actions';
-    const bPass = document.createElement('button');
-    bPass.className = 'btn';
-    bPass.textContent = r.status === 'passive' ? 'Активно' : 'В ожидании';
-    bPass.addEventListener('click', async () => {
-      const next = r.status === 'passive' ? 'active' : 'passive';
-      const upd = await api('/api/entries/' + r.id, { method: 'PATCH', body: { status: next } });
-      const idx = activeList.findIndex((x) => x.id === r.id);
-      if (idx >= 0) activeList[idx] = upd;
-      renderModalList();
-      renderActive();
-      tick();
-    });
-    const bStop = document.createElement('button');
-    bStop.className = 'btn btn-stop';
-    bStop.textContent = 'Завершить';
-    bStop.addEventListener('click', async () => {
-      await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
-      activeList = activeList.filter((x) => x.id !== r.id);
-      renderModalList();
-      renderActive();
-      loadToday();
-    });
-    actions.appendChild(bPass);
-    actions.appendChild(bStop);
-    el.appendChild(actions);
-    list.appendChild(el);
-  }
-  // обновляем таймеры каждую секунду
-  clearInterval(modalTimer);
-  modalTimer = setInterval(() => {
-    $$('#modal-list .modal-item-time').forEach((el) => {
-      el.textContent = fmtDuration(Date.now() - Number(el.dataset.start));
-    });
-  }, 1000);
-}
-
-let modalTimer = null;
-
-$('#modal-cancel').addEventListener('click', () => {
-  clearInterval(modalTimer);
-  $('#modal').classList.add('hidden');
-});
-
-$('#modal-continue').addEventListener('click', () => {
-  clearInterval(modalTimer);
-  $('#modal').classList.add('hidden');
-  $('#self-form').classList.remove('hidden');
-  loadClients();
-});
-
-$('#btn-cancel-self').addEventListener('click', () => $('#self-form').classList.add('hidden'));
-
-$('#self-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  startEntry($('#f-client').value.trim(), $('#f-task').value.trim(), 'self');
-  $('#f-client').value = '';
-  $('#f-task').value = '';
-});
-
-// ---------- сегодня ----------
-
-async function loadToday() {
-  const day = todayStr();
-  $('#today-date').textContent = day;
-  const rows = await api('/api/entries?day=' + day);
-  const ref = Date.now();
-  const total = rows.reduce((s, r) => s + ((r.end != null ? r.end : ref) - r.start), 0);
-  $('#day-total').textContent = 'Всего: ' + fmtDuration(total);
-
-  const list = $('#today-list');
-  list.innerHTML = '';
-  for (const r of rows) {
-    list.appendChild(makeEntryItem(r));
-  }
-}
-
-function makeEntryItem(r) {
+// универсальная карточка
+function makeEntryCard(r) {
   const li = document.createElement('li');
-  li.className = 'entry' + (r.status === 'active' ? ' active' : '') + (r.status === 'passive' ? ' passive' : '');
+  li.className = 'entry ' + r.status;
+  li.dataset.id = r.id;
 
   const head = document.createElement('div');
   head.className = 'entry-head';
@@ -322,73 +138,299 @@ function makeEntryItem(r) {
   task.textContent = r.task || '';
   info.appendChild(client);
   info.appendChild(task);
+  head.appendChild(info);
 
   const right = document.createElement('div');
   right.style.textAlign = 'right';
   const tag = document.createElement('span');
-  tag.className = 'entry-tag ' + r.status;
-  tag.textContent = r.status === 'active' ? 'идёт' : r.status === 'passive' ? 'ожидание' : '';
+  tag.className = 'entry-tag ' + r.status + (r.source === 'call' ? ' call' : '');
+  tag.textContent = tagLabel(r);
   const time = document.createElement('div');
   time.className = 'entry-time';
-  time.textContent = fmtRange(r.start, r.end);
+  if (r.start != null) {
+    time.dataset.start = r.start;
+    time.textContent = r.end != null ? fmtRange(r.start, r.end) : fmtDuration(Date.now() - r.start);
+  }
   right.appendChild(tag);
-  right.appendChild(time);
-
-  head.appendChild(info);
+  if (time.textContent) right.appendChild(time);
   head.appendChild(right);
   li.appendChild(head);
+
+  if (r.due) {
+    const due = document.createElement('div');
+    due.className = 'entry-due' + (isOverdue(r) ? ' overdue' : '');
+    due.textContent = 'Срок: ' + r.due + (isOverdue(r) ? ' — просрочено' : '');
+    li.appendChild(due);
+  }
+
+  const note = document.createElement('textarea');
+  note.className = 'entry-note';
+  note.placeholder = 'Заметки…';
+  note.value = r.note || '';
+  note.addEventListener('change', async () => {
+    await api('/api/entries/' + r.id, { method: 'PATCH', body: { note: note.value } });
+  });
+  li.appendChild(note);
 
   const actions = document.createElement('div');
   actions.className = 'entry-actions';
 
-  const bStop = document.createElement('button');
-  bStop.className = 'btn';
-  bStop.textContent = 'Завершить';
-  bStop.addEventListener('click', async () => {
-    await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
-    loadToday();
-    loadActive();
-  });
-
-  const bPass = document.createElement('button');
-  bPass.className = 'btn';
-  bPass.textContent = r.status === 'passive' ? 'Активно' : 'В ожидании';
-  bPass.addEventListener('click', async () => {
-    const next = r.status === 'passive' ? 'active' : 'passive';
-    await api('/api/entries/' + r.id, { method: 'PATCH', body: { status: next } });
-    loadToday();
-    loadActive();
-  });
+  if (r.status === 'new') {
+    const bStart = document.createElement('button');
+    bStart.className = 'btn btn-primary';
+    bStart.textContent = 'Начать';
+    bStart.addEventListener('click', async () => {
+      await api('/api/entries/' + r.id + '/start', { method: 'POST', body: {} });
+      loadCurrent();
+      loadTodos();
+      toast('Задача в работе');
+    });
+    actions.appendChild(bStart);
+  } else if (r.status === 'active' || r.status === 'passive') {
+    const bPass = document.createElement('button');
+    bPass.className = 'btn';
+    bPass.textContent = r.status === 'passive' ? 'Активно' : 'В ожидании';
+    bPass.addEventListener('click', async () => {
+      const next = r.status === 'passive' ? 'active' : 'passive';
+      await api('/api/entries/' + r.id, { method: 'PATCH', body: { status: next } });
+      loadCurrent();
+    });
+    const bStop = document.createElement('button');
+    bStop.className = 'btn btn-stop';
+    bStop.textContent = 'Завершить';
+    bStop.addEventListener('click', async () => {
+      await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
+      loadCurrent();
+      loadTodos();
+      toast('Завершено');
+    });
+    actions.appendChild(bPass);
+    actions.appendChild(bStop);
+  }
 
   const bDel = document.createElement('button');
   bDel.className = 'btn btn-sm';
   bDel.textContent = '✕';
   bDel.addEventListener('click', async () => {
     await api('/api/entries/' + r.id, { method: 'DELETE' });
-    loadToday();
-    loadActive();
+    loadCurrent();
+    loadTodos();
   });
-
-  actions.appendChild(bStop);
-  actions.appendChild(bPass);
   actions.appendChild(bDel);
+
   li.appendChild(actions);
   return li;
 }
 
-// ---------- автодополнение ----------
+function updateTimers() {
+  $$('#current-list .entry-time[data-start], #today-list .entry-time[data-start]').forEach((el) => {
+    const start = Number(el.dataset.start);
+    if (start) el.textContent = fmtDuration(Date.now() - start);
+  });
+}
 
-async function loadClients() {
+// ---------- новая задача ----------
+$('#btn-self').addEventListener('click', () => {
+  $('#self-form').classList.remove('hidden');
+  $('#todo-form').classList.add('hidden');
+  loadClients();
+});
+$('#btn-cancel-self').addEventListener('click', () => $('#self-form').classList.add('hidden'));
+
+$('#self-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
   try {
-    const clients = await api('/api/clients');
-    $('#clients-list').innerHTML = clients.map((c) => '<option value="' + escapeHtml(c) + '"></option>').join('');
-    const tasks = await api('/api/tasks');
-    $('#tasks-list').innerHTML = tasks.map((t) => '<option value="' + escapeHtml(t) + '"></option>').join('');
-  } catch (e) { /* ignore */ }
+    await api('/api/entries', {
+      method: 'POST',
+      body: {
+        client: $('#f-client').value.trim(),
+        task: $('#f-task').value.trim(),
+        note: $('#f-note').value.trim(),
+        due: $('#f-due').value,
+        source: 'self',
+      },
+    });
+    ['#f-client', '#f-task', '#f-note', '#f-due'].forEach((s) => { $(s).value = ''; });
+    $('#self-form').classList.add('hidden');
+    loadCurrent();
+    toast('Задача запущена');
+  } catch (e) { toast('Ошибка'); }
+});
+
+// ---------- новая задача-дело ----------
+function openTodoForm() {
+  $('#todo-form').classList.remove('hidden');
+  $('#self-form').classList.add('hidden');
+  loadClients();
+}
+$('#btn-add-todo').addEventListener('click', openTodoForm);
+$('#btn-cancel-todo').addEventListener('click', () => $('#todo-form').classList.add('hidden'));
+
+$('#todo-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const task = $('#t-task').value.trim();
+  if (!task) { toast('Укажите задачу'); return; }
+  try {
+    await api('/api/entries', {
+      method: 'POST',
+      body: {
+        client: $('#t-client').value.trim(),
+        task,
+        note: $('#t-note').value.trim(),
+        due: $('#t-due').value,
+        source: 'todo',
+        status: 'new',
+      },
+    });
+    ['#t-client', '#t-task', '#t-note', '#t-due'].forEach((s) => { $(s).value = ''; });
+    $('#todo-form').classList.add('hidden');
+    loadCurrent();
+    loadTodos();
+    toast('Задача добавлена');
+  } catch (e) { toast('Ошибка'); }
+});
+
+// ---------- звонок (модалка) ----------
+let selectedCallClient = '';
+
+$('#btn-call').addEventListener('click', () => {
+  selectedCallClient = '';
+  $('#call-step1').classList.remove('hidden');
+  $('#call-step2').classList.add('hidden');
+  $('#call-search').value = '';
+  $('#call-task').value = '';
+  $('#call-note').value = '';
+  $('#call-modal').classList.remove('hidden');
+  loadCallClients('');
+});
+
+async function loadCallClients(filter) {
+  const clients = await loadClients();
+  const f = filter.toLowerCase();
+  const list = $('#call-clients');
+  const filtered = clients.filter((c) => !f || c.toLowerCase().includes(f));
+  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">Ничего не найдено</div>'; return; }
+  list.innerHTML = '';
+  for (const c of filtered) {
+    const b = document.createElement('button');
+    b.className = 'call-client';
+    b.textContent = c;
+    b.addEventListener('click', () => selectCallClient(c));
+    list.appendChild(b);
+  }
+}
+
+$('#call-search').addEventListener('input', (e) => loadCallClients(e.target.value));
+
+function selectCallClient(client) {
+  selectedCallClient = client;
+  $('#call-client-name').textContent = client ? 'Клиент: ' + client : 'Без клиента';
+  $('#call-step1').classList.add('hidden');
+  $('#call-step2').classList.remove('hidden');
+  $('#call-task').focus();
+}
+
+$('#call-skip').addEventListener('click', () => selectCallClient(''));
+$('#call-cancel').addEventListener('click', () => $('#call-modal').classList.add('hidden'));
+$('#call-back').addEventListener('click', () => {
+  $('#call-step1').classList.remove('hidden');
+  $('#call-step2').classList.add('hidden');
+});
+
+$('#call-start').addEventListener('click', async () => {
+  try {
+    await api('/api/entries', {
+      method: 'POST',
+      body: {
+        client: selectedCallClient,
+        task: $('#call-task').value.trim(),
+        note: $('#call-note').value.trim(),
+        source: 'call',
+      },
+    });
+    $('#call-modal').classList.add('hidden');
+    loadCurrent();
+    toast('Звонок начат');
+  } catch (e) { toast('Ошибка'); }
+});
+
+// ---------- задачи по клиентам ----------
+async function loadTodos() {
+  const container = $('#todos-by-client');
+  container.innerHTML = '<div class="empty-hint">Загрузка…</div>';
+  const todos = await api('/api/todos');
+  const groups = {};
+  for (const t of todos) {
+    const key = t.client || '(без клиента)';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  }
+  container.innerHTML = '';
+
+  const keys = Object.keys(groups).sort((a, b) => (a === '(без клиента)' ? 1 : b === '(без клиента)' ? -1 : a.localeCompare(b)));
+
+  for (const key of keys) {
+    const items = groups[key];
+    const pending = items.filter((x) => x.status !== 'done');
+    const done = items.filter((x) => x.status === 'done');
+
+    const group = document.createElement('div');
+    group.className = 'client-group open';
+
+    const head = document.createElement('div');
+    head.className = 'client-group-head';
+    head.innerHTML = '<span class="caret">▸</span>' + escapeHtml(key) + '<span class="count">' + pending.length + '</span>';
+    head.addEventListener('click', () => group.classList.toggle('open'));
+
+    const body = document.createElement('div');
+    body.className = 'client-group-body';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'todo-save';
+    addBtn.textContent = '+ Новая задача';
+    addBtn.addEventListener('click', () => showView('current') && openTodoForm());
+    body.appendChild(addBtn);
+
+    for (const t of pending) body.appendChild(makeEntryCard(t));
+
+    if (done.length) {
+      const doneWrap = document.createElement('div');
+      doneWrap.className = 'client-group';
+      const doneHead = document.createElement('div');
+      doneHead.className = 'client-group-head';
+      doneHead.innerHTML = '<span class="caret">▸</span>Выполненные<span class="count">' + done.length + '</span>';
+      doneHead.addEventListener('click', () => doneWrap.classList.toggle('open'));
+      const doneBody = document.createElement('div');
+      doneBody.className = 'client-group-body';
+      for (const t of done) doneBody.appendChild(makeEntryCard(t));
+      doneWrap.appendChild(doneHead);
+      doneWrap.appendChild(doneBody);
+      body.appendChild(doneWrap);
+    }
+
+    group.appendChild(head);
+    group.appendChild(body);
+    container.appendChild(group);
+  }
+}
+
+// ---------- сегодня ----------
+async function loadToday() {
+  const day = todayStr();
+  $('#today-date').textContent = day;
+  const rows = await api('/api/entries?day=' + day);
+  const withTime = rows.filter((r) => r.start != null);
+  const ref = Date.now();
+  const total = withTime.reduce((s, r) => s + ((r.end != null ? r.end : ref) - r.start), 0);
+  $('#day-total').textContent = 'Всего: ' + fmtDuration(total);
+
+  const list = $('#today-list');
+  list.innerHTML = '';
+  if (!withTime.length) { list.innerHTML = '<li class="empty-hint">Сегодня нет записей времени</li>'; return; }
+  for (const r of withTime) list.appendChild(makeEntryCard(r));
 }
 
 // ---------- отчёт ----------
-
 const RANGES = {
   day: () => [todayStr(), todayStr()],
   week: () => {
@@ -403,7 +445,6 @@ const RANGES = {
 let reportData = null;
 
 function setupReport() {
-  // задаём диапазон по умолчанию (не сбрасываем, если уже был)
   const range = document.querySelector('.range.active').dataset.range;
   const [from, to] = RANGES[range]();
   $('#r-from').value = from;
@@ -434,16 +475,12 @@ function fmtHMS(ms) {
 
 function renderReportTable(el, rows, isClient) {
   el.innerHTML = '';
-  if (!rows.length) {
-    el.innerHTML = '<tr><td>Нет данных</td></tr>';
-    return;
-  }
+  if (!rows.length) { el.innerHTML = '<tr><td>Нет данных</td></tr>'; return; }
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
   trh.innerHTML = '<th>' + (isClient ? 'Клиент' : 'Задача') + '</th><th class="num">Активное</th><th class="num">Ожидание</th><th class="num">Итого</th>';
   thead.appendChild(trh);
   el.appendChild(thead);
-
   const tbody = document.createElement('tbody');
   for (const r of rows) {
     const tr = document.createElement('tr');
@@ -466,7 +503,6 @@ async function loadReport() {
     reportData = await api('/api/report?from=' + from + '&to=' + to);
     renderReportTable($('#rep-clients'), reportData.clients, true);
     renderReportTable($('#rep-tasks'), reportData.tasks, false);
-
     const list = $('#report-entries');
     list.innerHTML = '';
     for (const r of reportData.entries) {
@@ -475,15 +511,14 @@ async function loadReport() {
       li.innerHTML =
         '<div class="entry-head"><span><b>' + escapeHtml(r.client || 'Без клиента') + '</b></span><span class="entry-time">' + fmtRange(r.start, r.end) + '</span></div>' +
         '<div class="entry-task">' + escapeHtml(r.task || '') + '</div>';
+      if (r.note) li.innerHTML += '<div class="muted" style="font-size:13px;margin-top:4px">' + escapeHtml(r.note) + '</div>';
       list.appendChild(li);
     }
-  } catch (e) {
-    toast('Ошибка отчёта');
-  }
+  } catch (e) { toast('Ошибка отчёта'); }
 }
 
 $('#btn-csv').addEventListener('click', () => {
-  if (!reportData) return;
+  if (!reportData) { toast('Сначала загрузите отчёт'); return; }
   let csv = '\uFEFFКлиент;Активное(мин);Ожидание(мин);Итого(мин)\n';
   for (const r of reportData.clients) {
     csv += r.name + ';' + Math.round(r.active / 60000) + ';' + Math.round(r.passive / 60000) + ';' + Math.round((r.active + r.passive) / 60000) + '\n';
@@ -500,59 +535,11 @@ $('#btn-csv').addEventListener('click', () => {
   URL.revokeObjectURL(a.href);
 });
 
-// ---------- шаблоны ----------
-
-async function loadTemplates() {
-  const list = $('#template-list');
-  list.innerHTML = '';
-  const tpls = await api('/api/templates');
-  for (const t of tpls) {
-    const li = document.createElement('li');
-    li.className = 'template-item';
-    const info = document.createElement('div');
-    info.className = 'template-info';
-    info.innerHTML = '<div class="template-name">' + escapeHtml(t.name) + '</div>' +
-      '<div class="template-sub">' + escapeHtml(t.client || '') + (t.client && t.task ? ' · ' : '') + escapeHtml(t.task || '') + '</div>';
-    const run = document.createElement('button');
-    run.className = 'template-run';
-    run.textContent = '▶';
-    run.addEventListener('click', () => startEntry(t.client, t.task, 'self'));
-    const del = document.createElement('button');
-    del.className = 'template-del';
-    del.textContent = '✕';
-    del.addEventListener('click', async () => {
-      await api('/api/templates/' + t.id, { method: 'DELETE' });
-      loadTemplates();
-    });
-    li.appendChild(info);
-    li.appendChild(run);
-    li.appendChild(del);
-    list.appendChild(li);
-  }
-}
-
-$('#template-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = $('#t-name').value.trim();
-  if (!name) { toast('Укажите название'); return; }
-  await api('/api/templates', {
-    method: 'POST',
-    body: { name, client: $('#t-client').value.trim(), task: $('#t-task').value.trim() },
-  });
-  $('#t-name').value = ''; $('#t-client').value = ''; $('#t-task').value = '';
-  loadTemplates();
-  toast('Шаблон сохранён');
-});
-
-// ---------- запуск ----------
-
-// поллинг активной записи и времени
-setInterval(tick, 1000);
-setInterval(loadActive, 15000);
-
+// ---------- инициализация ----------
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-loadActive();
+loadCurrent();
 loadClients();
+setInterval(updateTimers, 1000);
