@@ -217,16 +217,6 @@ function makeEntryCard(r) {
     actions.appendChild(bAdd);
   }
 
-  const bDel = document.createElement('button');
-  bDel.className = 'btn';
-  bDel.textContent = 'Удалить';
-  bDel.addEventListener('click', async () => {
-    await api('/api/entries/' + r.id, { method: 'DELETE' });
-    loadCurrent();
-    loadTodos();
-  });
-  actions.appendChild(bDel);
-
   li.appendChild(actions);
   return li;
 }

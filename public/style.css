@@ -107,11 +107,13 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; }
 .entry-list { list-style: none; }
 .entry-list.current-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-  align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  min-height: calc(100vh - 260px);
 }
-.entry-list.current-grid .entry { margin-bottom: 0; }
+.entry-list.current-grid .entry { margin-bottom: 0; height: 100%; }
+.entry-list.current-grid .entry-actions { margin-top: auto; }
 .entry {
   background: var(--card); border: 1px solid var(--line); border-radius: 12px;
   padding: 12px 14px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;
@@ -143,6 +145,7 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; }
 .entry-note {
   width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--line);
   border-radius: 8px; font-size: 13px; background: #fafbfe; resize: vertical; min-height: 30px;
+  flex-grow: 1;
 }
 .entry-note:focus { border-style: solid; border-color: var(--blue); background: #fff; outline: none; }
 
