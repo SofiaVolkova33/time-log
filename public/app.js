@@ -190,8 +190,93 @@ async function callStart() {
 
 $('#btn-call').addEventListener('click', callStart);
 
-$('#btn-self').addEventListener('click', () => {
-  $('#self-form').classList.toggle('hidden');
+$('#btn-self').addEventListener('click', async () => {
+  $('#self-form').classList.add('hidden');
+  await loadActive();
+  if (!activeList.length) {
+    $('#self-form').classList.remove('hidden');
+    loadClients();
+    return;
+  }
+  renderModalList();
+  $('#modal').classList.remove('hidden');
+});
+
+function renderModalList() {
+  const list = $('#modal-list');
+  list.innerHTML = '';
+  if (!activeList.length) {
+    $('#modal-continue').textContent = 'Открыть новую задачу';
+  } else {
+    $('#modal-continue').textContent = 'Продолжить → новая';
+  }
+  for (const r of activeList) {
+    const el = document.createElement('div');
+    el.className = 'modal-item';
+
+    const head = document.createElement('div');
+    head.className = 'modal-item-head';
+    const left = document.createElement('div');
+    left.innerHTML =
+      '<div class="modal-item-client">' + escapeHtml(r.client || 'Без клиента') + '</div>' +
+      '<div class="modal-item-task">' + escapeHtml(r.task || '') + '</div>';
+    const time = document.createElement('div');
+    time.className = 'modal-item-time';
+    time.dataset.start = r.start;
+    time.textContent = fmtDuration(Date.now() - r.start);
+    head.appendChild(left);
+    head.appendChild(time);
+    el.appendChild(head);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-item-actions';
+    const bPass = document.createElement('button');
+    bPass.className = 'btn';
+    bPass.textContent = r.status === 'passive' ? 'Активно' : 'В ожидании';
+    bPass.addEventListener('click', async () => {
+      const next = r.status === 'passive' ? 'active' : 'passive';
+      const upd = await api('/api/entries/' + r.id, { method: 'PATCH', body: { status: next } });
+      const idx = activeList.findIndex((x) => x.id === r.id);
+      if (idx >= 0) activeList[idx] = upd;
+      renderModalList();
+      renderActive();
+      tick();
+    });
+    const bStop = document.createElement('button');
+    bStop.className = 'btn btn-stop';
+    bStop.textContent = 'Завершить';
+    bStop.addEventListener('click', async () => {
+      await api('/api/entries/' + r.id + '/close', { method: 'POST', body: {} });
+      activeList = activeList.filter((x) => x.id !== r.id);
+      renderModalList();
+      renderActive();
+      loadToday();
+    });
+    actions.appendChild(bPass);
+    actions.appendChild(bStop);
+    el.appendChild(actions);
+    list.appendChild(el);
+  }
+  // обновляем таймеры каждую секунду
+  clearInterval(modalTimer);
+  modalTimer = setInterval(() => {
+    $$('#modal-list .modal-item-time').forEach((el) => {
+      el.textContent = fmtDuration(Date.now() - Number(el.dataset.start));
+    });
+  }, 1000);
+}
+
+let modalTimer = null;
+
+$('#modal-cancel').addEventListener('click', () => {
+  clearInterval(modalTimer);
+  $('#modal').classList.add('hidden');
+});
+
+$('#modal-continue').addEventListener('click', () => {
+  clearInterval(modalTimer);
+  $('#modal').classList.add('hidden');
+  $('#self-form').classList.remove('hidden');
   loadClients();
 });
 
