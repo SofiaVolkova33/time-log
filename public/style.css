@@ -236,6 +236,7 @@ h3 { margin: 14px 0 8px; font-size: 16px; }
 .todo-save { margin: 6px 0 0; padding: 12px 16px; background: #eef4ff; border: 1px dashed #cdd9f5; border-radius: 12px; color: var(--blue-dark); font-weight: 600; cursor: pointer; width: 100%; }
 
 .todo-row .todo-text { font-weight: 600; }
+.todo-row .todo-client { font-weight: 700; font-size: 15px; }
 .todo-row .todo-note { font-size: 13px; color: var(--muted); margin-top: 6px; font-style: italic; }
 .todo-actions { margin-top: 8px; }
 .todo-actions .btn { flex: 0 1 auto; }

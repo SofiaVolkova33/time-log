@@ -397,6 +397,13 @@ function colorFor(name) {
   return 'pc' + ((h % 6) + 1);
 }
 
+const CLIENT_TEXT_COLORS = ['#7d6bb0', '#2f8f6b', '#c0704a', '#c05a6b', '#3a7ba6', '#a0842f'];
+function textColorFor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % 997;
+  return CLIENT_TEXT_COLORS[h % 6];
+}
+
 // компактная строка задачи в разделе «Задачи»
 function makeTodoRow(r) {
   const li = document.createElement('li');
@@ -406,13 +413,19 @@ function makeTodoRow(r) {
   head.className = 'entry-head';
 
   const info = document.createElement('div');
+  if (r.client) {
+    const cl = document.createElement('div');
+    cl.className = 'todo-client';
+    cl.style.color = textColorFor(r.client);
+    cl.textContent = r.client;
+    info.appendChild(cl);
+  }
   const txt = document.createElement('div');
   txt.className = 'todo-text';
   txt.textContent = r.task || '(без задачи)';
   const sub = document.createElement('div');
   sub.className = 'entry-task';
   const subs = [];
-  if (r.client) subs.push(r.client);
   if (r.due) subs.push('срок: ' + r.due + (isOverdue(r) ? ' ⚠' : ''));
   else subs.push('срок не указан');
   if (r.status === 'active') subs.push('в работе · ' + fmtDuration((r.end || Date.now()) - r.start));
