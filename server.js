@@ -342,7 +342,21 @@ app.get('/api/report', async (req, res) => {
 
 // ---------- health ----------
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', async (req, res) => {
+  let dbInfo = 'none';
+  try {
+    if (isPg) {
+      const r = await db.all(`SELECT COUNT(*)::int AS n FROM entries`);
+      dbInfo = 'pg:' + r[0].n;
+    } else {
+      const r = await db.all(`SELECT COUNT(*) AS n FROM entries`);
+      dbInfo = 'sqlite:' + r[0].n;
+    }
+  } catch (e) {
+    dbInfo = 'error:' + e.message;
+  }
+  res.json({ ok: true, db: dbInfo });
+});
 
 db.init().then(() => {
   app.listen(PORT, () => {
